@@ -341,7 +341,7 @@ typeof navigator === "object" && (function (global, factory) {
 	  return store[key] || (store[key] = value !== undefined ? value : {});
 	})('versions', []).push({
 	  version: _core.version,
-	  mode: 'global',
+	  mode: _library ? 'pure' : 'global',
 	  copyright: '© 2018 Denis Pushkarev (zloirock.ru)'
 	});
 	});
@@ -3006,7 +3006,7 @@ typeof navigator === "object" && (function (global, factory) {
 
 	var defineProperty = _objectDp.f;
 	var _wksDefine = function (name) {
-	  var $Symbol = _core.Symbol || (_core.Symbol = _global.Symbol || {});
+	  var $Symbol = _core.Symbol || (_core.Symbol = _library ? {} : _global.Symbol || {});
 	  if (name.charAt(0) != '_' && !(name in $Symbol)) defineProperty($Symbol, name, { value: _wksExt.f(name) });
 	};
 
@@ -7887,6 +7887,11 @@ typeof navigator === "object" && (function (global, factory) {
 	            container.appendChild(controls.createButton.call(this, 'fast-forward'));
 	        }
 
+	        // Media current time display
+	        if (this.config.controls.includes('current-time')) {
+	            container.appendChild(controls.createTime.call(this, 'currentTime'));
+	        }
+
 	        // Progress
 	        if (this.config.controls.includes('progress')) {
 	            var progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress));
@@ -7913,11 +7918,6 @@ typeof navigator === "object" && (function (global, factory) {
 
 	            this.elements.progress = progress;
 	            container.appendChild(this.elements.progress);
-	        }
-
-	        // Media current time display
-	        if (this.config.controls.includes('current-time')) {
-	            container.appendChild(controls.createTime.call(this, 'currentTime'));
 	        }
 
 	        // Media duration display

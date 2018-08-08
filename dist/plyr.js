@@ -2467,6 +2467,11 @@ typeof navigator === "object" && (function (global, factory) {
                 container.appendChild(controls.createButton.call(this, 'fast-forward'));
             }
 
+            // Media current time display
+            if (this.config.controls.includes('current-time')) {
+                container.appendChild(controls.createTime.call(this, 'currentTime'));
+            }
+
             // Progress
             if (this.config.controls.includes('progress')) {
                 var progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress));
@@ -2493,11 +2498,6 @@ typeof navigator === "object" && (function (global, factory) {
 
                 this.elements.progress = progress;
                 container.appendChild(this.elements.progress);
-            }
-
-            // Media current time display
-            if (this.config.controls.includes('current-time')) {
-                container.appendChild(controls.createTime.call(this, 'currentTime'));
             }
 
             // Media duration display

@@ -1145,6 +1145,11 @@ const controls = {
             container.appendChild(controls.createButton.call(this, 'fast-forward'));
         }
 
+        // Media current time display
+        if (this.config.controls.includes('current-time')) {
+            container.appendChild(controls.createTime.call(this, 'currentTime'));
+        }
+
         // Progress
         if (this.config.controls.includes('progress')) {
             const progress = createElement('div', getAttributesFromSelector(this.config.selectors.progress));
@@ -1179,10 +1184,6 @@ const controls = {
             container.appendChild(this.elements.progress);
         }
 
-        // Media current time display
-        if (this.config.controls.includes('current-time')) {
-            container.appendChild(controls.createTime.call(this, 'currentTime'));
-        }
 
         // Media duration display
         if (this.config.controls.includes('duration')) {
@@ -1458,7 +1459,7 @@ const controls = {
         // Inject controls HTML (needs to be before captions, hence "afterbegin")
         const insertMethod = is.element(container) ? 'insertAdjacentElement' : 'insertAdjacentHTML';
         target[insertMethod]('afterbegin', container);
-        
+
         // jwjcmw: inject extra controls
         if (is.string(this.config.extracontrols)) {
             target['insertAdjacentHTML']('afterbegin', this.config.extracontrols);
