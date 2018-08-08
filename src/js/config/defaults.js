@@ -147,6 +147,9 @@ const defaults = {
         'airplay',
         'fullscreen',
     ],
+    
+    extracontrols: null,
+
     settings: ['captions', 'quality', 'speed'],
 
     // Localisation

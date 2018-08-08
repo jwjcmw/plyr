@@ -20,7 +20,7 @@ typeof navigator === "object" && (function (global, factory) {
 	});
 
 	var _core = createCommonjsModule(function (module) {
-	var core = module.exports = { version: '2.5.3' };
+	var core = module.exports = { version: '2.5.7' };
 	if (typeof __e == 'number') __e = core; // eslint-disable-line no-undef
 	});
 	var _core_1 = _core.version;
@@ -333,11 +333,18 @@ typeof navigator === "object" && (function (global, factory) {
 	  };
 	};
 
+	var _shared = createCommonjsModule(function (module) {
 	var SHARED = '__core-js_shared__';
 	var store = _global[SHARED] || (_global[SHARED] = {});
-	var _shared = function (key) {
-	  return store[key] || (store[key] = {});
-	};
+
+	(module.exports = function (key, value) {
+	  return store[key] || (store[key] = value !== undefined ? value : {});
+	})('versions', []).push({
+	  version: _core.version,
+	  mode: 'global',
+	  copyright: '© 2018 Denis Pushkarev (zloirock.ru)'
+	});
+	});
 
 	var shared = _shared('keys');
 
@@ -741,12 +748,12 @@ typeof navigator === "object" && (function (global, factory) {
 	    if ($slice !== undefined && end === undefined) return $slice.call(_anObject(this), start); // FF fix
 	    var len = _anObject(this).byteLength;
 	    var first = _toAbsoluteIndex(start, len);
-	    var final = _toAbsoluteIndex(end === undefined ? len : end, len);
-	    var result = new (_speciesConstructor(this, $ArrayBuffer))(_toLength(final - first));
+	    var fin = _toAbsoluteIndex(end === undefined ? len : end, len);
+	    var result = new (_speciesConstructor(this, $ArrayBuffer))(_toLength(fin - first));
 	    var viewS = new $DataView(this);
 	    var viewT = new $DataView(result);
 	    var index = 0;
-	    while (first < final) {
+	    while (first < fin) {
 	      viewT.setUint8(index++, viewS.getUint8(first++));
 	    } return result;
 	  }
@@ -991,7 +998,7 @@ typeof navigator === "object" && (function (global, factory) {
 	  var VALUES_BUG = false;
 	  var proto = Base.prototype;
 	  var $native = proto[ITERATOR$2] || proto[FF_ITERATOR] || DEFAULT && proto[DEFAULT];
-	  var $default = (!BUGGY && $native) || getMethod(DEFAULT);
+	  var $default = $native || getMethod(DEFAULT);
 	  var $entries = DEFAULT ? !DEF_VALUES ? $default : getMethod('entries') : undefined;
 	  var $anyNative = NAME == 'Array' ? proto.entries || $native : $native;
 	  var methods, key, IteratorPrototype;
@@ -1002,7 +1009,7 @@ typeof navigator === "object" && (function (global, factory) {
 	      // Set @@toStringTag to native iterators
 	      _setToStringTag(IteratorPrototype, TAG, true);
 	      // fix for some old engines
-	      if (!_has(IteratorPrototype, ITERATOR$2)) _hide(IteratorPrototype, ITERATOR$2, returnThis);
+	      if (typeof IteratorPrototype[ITERATOR$2] != 'function') _hide(IteratorPrototype, ITERATOR$2, returnThis);
 	    }
 	  }
 	  // fix Array#{values, @@iterator}.name in V8 / FF
@@ -2495,9 +2502,11 @@ typeof navigator === "object" && (function (global, factory) {
 	  }
 	  if (_has(ownDesc, 'value')) {
 	    if (ownDesc.writable === false || !_isObject(receiver)) return false;
-	    existingDescriptor = _objectGopd.f(receiver, propertyKey) || _propertyDesc(0);
-	    existingDescriptor.value = V;
-	    _objectDp.f(receiver, propertyKey, existingDescriptor);
+	    if (existingDescriptor = _objectGopd.f(receiver, propertyKey)) {
+	      if (existingDescriptor.get || existingDescriptor.set || existingDescriptor.writable === false) return false;
+	      existingDescriptor.value = V;
+	      _objectDp.f(receiver, propertyKey, existingDescriptor);
+	    } else _objectDp.f(receiver, propertyKey, _propertyDesc(0, V));
 	    return true;
 	  }
 	  return ownDesc.set === undefined ? false : (ownDesc.set.call(receiver, V), true);
@@ -2642,7 +2651,8 @@ typeof navigator === "object" && (function (global, factory) {
 	    };
 	  // environments with maybe non-completely correct, but existent Promise
 	  } else if (Promise$1 && Promise$1.resolve) {
-	    var promise = Promise$1.resolve();
+	    // Promise.resolve without an argument throws an error in LG WebOS 2
+	    var promise = Promise$1.resolve(undefined);
 	    notify = function () {
 	      promise.then(flush);
 	    };
@@ -2699,6 +2709,10 @@ typeof navigator === "object" && (function (global, factory) {
 	  }
 	};
 
+	var navigator$1 = _global.navigator;
+
+	var _userAgent = navigator$1 && navigator$1.userAgent || '';
+
 	var _promiseResolve = function (C, x) {
 	  _anObject(C);
 	  if (_isObject(x) && x.constructor === C) return x;
@@ -2713,9 +2727,12 @@ typeof navigator === "object" && (function (global, factory) {
 
 
 
+
 	var PROMISE = 'Promise';
 	var TypeError$1 = _global.TypeError;
 	var process$2 = _global.process;
+	var versions = process$2 && process$2.versions;
+	var v8 = versions && versions.v8 || '';
 	var $Promise = _global[PROMISE];
 	var isNode$1 = _classof(process$2) == 'process';
 	var empty = function () { /* empty */ };
@@ -2730,7 +2747,13 @@ typeof navigator === "object" && (function (global, factory) {
 	      exec(empty, empty);
 	    };
 	    // unhandled rejections tracking support, NodeJS Promise without it fails @@species test
-	    return (isNode$1 || typeof PromiseRejectionEvent == 'function') && promise.then(empty) instanceof FakePromise;
+	    return (isNode$1 || typeof PromiseRejectionEvent == 'function')
+	      && promise.then(empty) instanceof FakePromise
+	      // v8 6.6 (Node 10 and Chrome 66) have a bug with resolving custom thenables
+	      // https://bugs.chromium.org/p/chromium/issues/detail?id=830565
+	      // we can't detect it synchronously, so just check versions
+	      && v8.indexOf('6.6') !== 0
+	      && _userAgent.indexOf('Chrome/66') === -1;
 	  } catch (e) { /* empty */ }
 	}();
 
@@ -2752,7 +2775,7 @@ typeof navigator === "object" && (function (global, factory) {
 	      var resolve = reaction.resolve;
 	      var reject = reaction.reject;
 	      var domain = reaction.domain;
-	      var result, then;
+	      var result, then, exited;
 	      try {
 	        if (handler) {
 	          if (!ok) {
@@ -2762,8 +2785,11 @@ typeof navigator === "object" && (function (global, factory) {
 	          if (handler === true) result = value;
 	          else {
 	            if (domain) domain.enter();
-	            result = handler(value);
-	            if (domain) domain.exit();
+	            result = handler(value); // may throw
+	            if (domain) {
+	              domain.exit();
+	              exited = true;
+	            }
 	          }
 	          if (result === reaction.promise) {
 	            reject(TypeError$1('Promise-chain cycle'));
@@ -2772,6 +2798,7 @@ typeof navigator === "object" && (function (global, factory) {
 	          } else resolve(result);
 	        } else reject(value);
 	      } catch (e) {
+	        if (domain && !exited) domain.exit();
 	        reject(e);
 	      }
 	    };
@@ -4154,10 +4181,6 @@ typeof navigator === "object" && (function (global, factory) {
 	  return left ? stringFiller + S : S + stringFiller;
 	};
 
-	var navigator$1 = _global.navigator;
-
-	var _userAgent = navigator$1 && navigator$1.userAgent || '';
-
 	// https://github.com/tc39/proposal-string-pad-start-end
 
 
@@ -5002,44 +5025,55 @@ typeof navigator === "object" && (function (global, factory) {
 	// https://github.com/d4tocchini/customevent-polyfill
 	// https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent#Polyfill
 
-	try {
-	    var ce = new window.CustomEvent('test');
+	(function() {
+	  if (typeof window === 'undefined') {
+	    return;
+	  }
+
+	  try {
+	    var ce = new window.CustomEvent('test', { cancelable: true });
 	    ce.preventDefault();
 	    if (ce.defaultPrevented !== true) {
-	        // IE has problems with .preventDefault() on custom events
-	        // http://stackoverflow.com/questions/23349191
-	        throw new Error('Could not prevent default');
+	      // IE has problems with .preventDefault() on custom events
+	      // http://stackoverflow.com/questions/23349191
+	      throw new Error('Could not prevent default');
 	    }
-	} catch(e) {
-	  var CustomEvent$1 = function(event, params) {
-	    var evt, origPrevent;
-	    params = params || {
-	      bubbles: false,
-	      cancelable: false,
-	      detail: undefined
+	  } catch (e) {
+	    var CustomEvent = function(event, params) {
+	      var evt, origPrevent;
+	      params = params || {
+	        bubbles: false,
+	        cancelable: false,
+	        detail: undefined
+	      };
+
+	      evt = document.createEvent('CustomEvent');
+	      evt.initCustomEvent(
+	        event,
+	        params.bubbles,
+	        params.cancelable,
+	        params.detail
+	      );
+	      origPrevent = evt.preventDefault;
+	      evt.preventDefault = function() {
+	        origPrevent.call(this);
+	        try {
+	          Object.defineProperty(this, 'defaultPrevented', {
+	            get: function() {
+	              return true;
+	            }
+	          });
+	        } catch (e) {
+	          this.defaultPrevented = true;
+	        }
+	      };
+	      return evt;
 	    };
 
-	    evt = document.createEvent("CustomEvent");
-	    evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
-	    origPrevent = evt.preventDefault;
-	    evt.preventDefault = function () {
-	      origPrevent.call(this);
-	      try {
-	        Object.defineProperty(this, 'defaultPrevented', {
-	          get: function () {
-	            return true;
-	          }
-	        });
-	      } catch(e) {
-	        this.defaultPrevented = true;
-	      }
-	    };
-	    return evt;
-	  };
-
-	  CustomEvent$1.prototype = window.Event.prototype;
-	  window.CustomEvent = CustomEvent$1; // expose definition to window
-	}
+	    CustomEvent.prototype = window.Event.prototype;
+	    window.CustomEvent = CustomEvent; // expose definition to window
+	  }
+	})();
 
 	(function(global) {
 	  /**
@@ -7506,19 +7540,19 @@ typeof navigator === "object" && (function (global, factory) {
 	        if (!is.element(this.elements.settings.panes.loop)) {
 	            return;
 	        }
-	         const options = ['start', 'end', 'all', 'reset'];
+	          const options = ['start', 'end', 'all', 'reset'];
 	        const list = this.elements.settings.panes.loop.querySelector('ul');
-	         // Show the pane and tab
+	          // Show the pane and tab
 	        toggleHidden(this.elements.settings.tabs.loop, false);
 	        toggleHidden(this.elements.settings.panes.loop, false);
-	         // Toggle the pane and tab
+	          // Toggle the pane and tab
 	        const toggle = !is.empty(this.loop.options);
 	        controls.toggleTab.call(this, 'loop', toggle);
-	         // Empty the menu
+	          // Empty the menu
 	        emptyElement(list);
-	         options.forEach(option => {
+	          options.forEach(option => {
 	            const item = createElement('li');
-	             const button = createElement(
+	              const button = createElement(
 	                'button',
 	                extend(getAttributesFromSelector(this.config.selectors.buttons.loop), {
 	                    type: 'button',
@@ -7527,11 +7561,11 @@ typeof navigator === "object" && (function (global, factory) {
 	                }),
 	                i18n.get(option, this.config)
 	            );
-	             if (['start', 'end'].includes(option)) {
+	              if (['start', 'end'].includes(option)) {
 	                const badge = controls.createBadge.call(this, '00:00');
 	                button.appendChild(badge);
 	            }
-	             item.appendChild(button);
+	              item.appendChild(button);
 	            list.appendChild(item);
 	        });
 	    }, */
@@ -8152,6 +8186,11 @@ typeof navigator === "object" && (function (global, factory) {
 	        var insertMethod = is$1.element(container) ? 'insertAdjacentElement' : 'insertAdjacentHTML';
 	        target[insertMethod]('afterbegin', container);
 
+	        // jwjcmw: inject extra controls
+	        if (is$1.string(this.config.extracontrols)) {
+	            target['insertAdjacentHTML']('afterbegin', this.config.extracontrols);
+	        }
+
 	        // Find the elements if need be
 	        if (!is$1.element(this.elements.controls)) {
 	            controls.findElements.call(this);
@@ -8754,6 +8793,9 @@ typeof navigator === "object" && (function (global, factory) {
 	    'play',
 	    // 'fast-forward',
 	    'progress', 'current-time', 'mute', 'volume', 'captions', 'settings', 'pip', 'airplay', 'fullscreen'],
+
+	    extracontrols: null,
+
 	    settings: ['captions', 'quality', 'speed'],
 
 	    // Localisation
@@ -9687,10 +9729,10 @@ typeof navigator === "object" && (function (global, factory) {
 	                    /* case 73:
 	                        this.setLoop('start');
 	                        break;
-	                     case 76:
+	                      case 76:
 	                        this.setLoop();
 	                        break;
-	                     case 79:
+	                      case 79:
 	                        this.setLoop('end');
 	                        break; */
 
@@ -13325,7 +13367,7 @@ typeof navigator === "object" && (function (global, factory) {
 
 	            // Set default to be a true toggle
 	            /* const type = ['start', 'end', 'all', 'none', 'toggle'].includes(input) ? input : 'toggle';
-	             switch (type) {
+	              switch (type) {
 	                case 'start':
 	                    if (this.config.loop.end && this.config.loop.end <= this.currentTime) {
 	                        this.config.loop.end = null;
@@ -13333,20 +13375,20 @@ typeof navigator === "object" && (function (global, factory) {
 	                    this.config.loop.start = this.currentTime;
 	                    // this.config.loop.indicator.start = this.elements.display.played.value;
 	                    break;
-	                 case 'end':
+	                  case 'end':
 	                    if (this.config.loop.start >= this.currentTime) {
 	                        return this;
 	                    }
 	                    this.config.loop.end = this.currentTime;
 	                    // this.config.loop.indicator.end = this.elements.display.played.value;
 	                    break;
-	                 case 'all':
+	                  case 'all':
 	                    this.config.loop.start = 0;
 	                    this.config.loop.end = this.duration - 2;
 	                    this.config.loop.indicator.start = 0;
 	                    this.config.loop.indicator.end = 100;
 	                    break;
-	                 case 'toggle':
+	                  case 'toggle':
 	                    if (this.config.loop.active) {
 	                        this.config.loop.start = 0;
 	                        this.config.loop.end = null;
@@ -13355,7 +13397,7 @@ typeof navigator === "object" && (function (global, factory) {
 	                        this.config.loop.end = this.duration - 2;
 	                    }
 	                    break;
-	                 default:
+	                  default:
 	                    this.config.loop.start = 0;
 	                    this.config.loop.end = null;
 	                    break;
